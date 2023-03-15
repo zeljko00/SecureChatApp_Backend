@@ -21,6 +21,7 @@ export const RegisterPage = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const user = "user";
   const token = "token";
+
   const handleChangeUsername = (event) => {
     if (event.target.value.length <= 5 && event.target.value.length > 0)
       setUsernameError("At least 6 characters!");
