@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-// import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./RegisterPage.css";
 import { CustomTextField } from "../../styled-mui/inputs";
 import Snackbar from "@mui/material/Snackbar";
@@ -19,6 +19,7 @@ export const RegisterPage = () => {
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
+  const navigate = useNavigate();
   const user = "user";
   const token = "token";
 
@@ -58,8 +59,7 @@ export const RegisterPage = () => {
             JSON.stringify({ username: username, password: password })
           );
           sessionStorage.setItem(token, response.data);
-          setSnackbarMessage("Success!");
-          handleOpenSnackbar();
+          navigate("/SecureChat/chatroom");
         });
     }
   };

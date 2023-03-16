@@ -8,7 +8,6 @@ import Button from "@mui/material/Button";
 import InputAdornment from "@mui/material/InputAdornment";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import KeyIcon from "@mui/icons-material/Key";
-import chatIcon from "../../assets/images/chat-icon.png";
 import { login } from "../../services/user.service";
 export const LoginPage = () => {
   const [username, setUsername] = useState("user");
@@ -18,8 +17,6 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const user = "user";
   const token = "token";
-
-  console.log(tokenize("porukaaaaa", 4));
 
   const handleOpenSnackbar = () => {
     setOpenSnackbar(true);
@@ -45,8 +42,8 @@ export const LoginPage = () => {
           JSON.stringify({ username: username, password: password })
         );
         sessionStorage.setItem(token, response.data);
-        setSnackbarMessage("Success!");
-        handleOpenSnackbar();
+        document.getElementById("inpLock").checked = false;
+        window.setTimeout(() => navigate("/SecureChat/chatroom"), 1500);
       });
   };
   const signUp = () => {
@@ -70,7 +67,22 @@ export const LoginPage = () => {
           {snackbarMessage}
         </MuiAlert>
       </Snackbar>
-      <img src={chatIcon} alt="chat" id="chat-icon"></img>
+      <input id="inpLock" type="checkbox" checked="false" />
+      <label class="btn-lock" for="inpLock">
+        <svg width="162" height="120" viewBox="0 0 36 40">
+          <path
+            class="lockb"
+            d="M27 27C27 34.1797 21.1797 40 14 40C6.8203 40 1 34.1797 1 27C1 19.8203 6.8203 14 14 14C21.1797 14 27 19.8203 27 27ZM15.6298 26.5191C16.4544 25.9845 17 25.056 17 24C17 22.3431 15.6569 21 14 21C12.3431 21 11 22.3431 11 24C11 25.056 11.5456 25.9845 12.3702 26.5191L11 32H17L15.6298 26.5191Z"
+          ></path>
+          <path
+            class="lock"
+            d="M6 21V10C6 5.58172 9.58172 2 14 2V2C18.4183 2 22 5.58172 22 10V21"
+          ></path>
+          <path class="bling" d="M29 20L31 22"></path>
+          <path class="bling" d="M31.5 15H34.5"></path>
+          <path class="bling" d="M29 10L31 8"></path>
+        </svg>
+      </label>
       <CustomTextField
         label="Username"
         variant="outlined"
@@ -126,14 +138,3 @@ export const LoginPage = () => {
   );
 };
 export default LoginPage;
-
-const tokenize = (msg, n) => {
-  const tokenLen = Math.floor(msg.length / n);
-  const x = msg.length % n;
-  const regex1 = new RegExp(".{" + tokenLen + "}", "g");
-  const regex2 = new RegExp(".{" + (tokenLen + 1) + "}", "g");
-  const arr1 = msg.slice(x * (tokenLen + 1), msg.length).match(regex1);
-  if (x !== 0) {
-    return msg.match(regex2).slice(0, x).concat(arr1);
-  } else return arr1;
-};

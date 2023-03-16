@@ -1,0 +1,43 @@
+.online-users{
+    padding: 10px;
+    background-color: #121212 !important;
+}
+.avatar-img{
+    width: 60px;
+    height: 65px;
+}
+.user-label{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #1e1e1e !important;
+    padding-left: 20px;
+    padding-bottom: 10px;
+    padding-top: 10px;
+      border-radius: 20px;
+}
+.username{
+    margin-left: 20px;
+    display: flex;
+    height: 100%;
+    font-size: 18px;
+    align-items: center;
+    background-color: #1e1e1e !important;
+}
+.avatar-button{
+    background-color: transparent;
+    border: 0;
+    display: block;
+    width: 100%;
+    max-width: 450px;
+    margin:0;
+    margin-bottom: 15px;
+    border-radius: 20px;
+
+}
+.avatar-button:hover, .glow{
+    box-shadow:  3px 1px 5px 1px rgba(72, 13, 180, 0.726),
+    1px 2px 2px 1px rgba(168, 30, 30, 0.14),
+    1px 3px 1px 2px rgba(170, 20, 20, 0.12); 
+}
+button{padding: 0}
