@@ -2,10 +2,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { onlineUsers, assignAvatar, logout } from "../../services/user.service";
-import { readURL } from "../../services/steg.service/util";
+import { encode } from "../../services/steg.service/encode";
+import { decode } from "../../services/steg.service/decode";
 import Snackbar from "@mui/material/Snackbar";
 import MuiAlert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
+import IconButton from "@mui/material/IconButton";
+import PhotoCamera from "@mui/icons-material/PhotoCamera";
 import Badge from "@mui/material/Badge";
 import Fab from "@mui/material/Fab";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
@@ -27,6 +30,8 @@ export const ChatPage = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const drawerBleeding = 50;
   const [image, setImage] = useState(null);
+  const [hiddenMsg, setHiddenMsg] = useState(null);
+  const [msg, setMsg] = useState("");
   const navigate = useNavigate();
 
   const StyledBox = styled(Box)(({ theme }) => ({
@@ -77,6 +82,16 @@ export const ChatPage = () => {
       setImage(e.target.result);
     };
     reader.readAsDataURL(input.target.files[0]);
+  };
+  const hideMsg = () => {
+    const encoded = encode("secret", image);
+    console.log(encoded);
+    setHiddenMsg(encoded);
+  };
+  const revealMsg = () => {
+    const msg = decode(hiddenMsg);
+    console.log(msg);
+    setMsg(msg);
   };
 
   const handleOpenSnackbar = () => {
@@ -140,14 +155,21 @@ export const ChatPage = () => {
           {snackbarMessage}
         </MuiAlert>
       </Snackbar>
-      <input
-        type="file"
-        name="img"
-        id="img-upload"
-        accept="image/*"
-        onChange={(event) => readURL(event)}
-      ></input>
-      {image && <img src={image} alt="image"></img>}
+      <IconButton color="primary" aria-label="upload picture" component="label">
+        <input
+          hidden
+          accept="image/*"
+          type="file"
+          onChange={(event) => readURL(event)}
+        />
+        <PhotoCamera />
+      </IconButton>
+
+      {image && <img src={image} alt="source"></img>}
+      <button onClick={hideMsg}>Hide</button>
+      {hiddenMsg && <img src={hiddenMsg} alt="hidden"></img>}
+      <button onClick={revealMsg}>Reveal</button>
+      <p>{msg}</p>
       <Fab
         color="error"
         aria-label="add"

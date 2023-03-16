@@ -1,4 +1,5 @@
-import util from "./util";
+import { util } from "./util";
+import { config } from "./config";
 export const encode = function (message, image, options) {
   // Handle image url
   if (image.length) {
@@ -12,7 +13,6 @@ export const encode = function (message, image, options) {
   }
 
   options = options || {};
-  var config = this.config;
 
   var t = options.t || config.t,
     threshold = options.threshold || config.threshold,
@@ -146,7 +146,7 @@ export const encode = function (message, image, options) {
   // Clear remaining data
   for (i = (index + 1) * 4 + 3; i < data.length; i += 4) data[i] = 255;
 
-  imageData.data = data;
+  // imageData.data = data;
   shadowCtx.putImageData(imageData, 0, 0);
 
   return shadowCanvas.toDataURL();

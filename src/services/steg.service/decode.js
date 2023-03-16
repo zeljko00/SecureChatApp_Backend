@@ -1,4 +1,5 @@
-import util from "./util";
+import { util } from "./util";
+import { config } from "./config";
 export const decode = function (image, options) {
   // Handle image url
   if (image.length) {
@@ -12,7 +13,6 @@ export const decode = function (image, options) {
   }
 
   options = options || {};
-  var config = this.config;
 
   var t = options.t || config.t,
     threshold = options.threshold || config.threshold,
