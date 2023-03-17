@@ -96,6 +96,7 @@ export function assignAvatar(users, user) {
     return {
       user,
       avatar,
+      messages: [],
     };
   });
 }

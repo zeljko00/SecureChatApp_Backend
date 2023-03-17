@@ -1,29 +1,38 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { onlineUsers, assignAvatar, logout } from "../../services/user.service";
 import { encode } from "../../services/steg.service/encode";
 import { decode } from "../../services/steg.service/decode";
+import { tokenize } from "../../services/message.service";
 import Snackbar from "@mui/material/Snackbar";
 import MuiAlert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
 import IconButton from "@mui/material/IconButton";
 import PhotoCamera from "@mui/icons-material/PhotoCamera";
 import Badge from "@mui/material/Badge";
-import Fab from "@mui/material/Fab";
+import TextField from "@mui/material/TextField";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
-import { styled } from "@mui/material/styles";
 import "./ChatPage.css";
 import { Global } from "@emotion/react";
 import CssBaseline from "@mui/material/CssBaseline";
 import { grey } from "@mui/material/colors";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
-import Skeleton from "@mui/material/Skeleton";
 import Typography from "@mui/material/Typography";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
+import avatar from "../../assets/images/avatar4.png";
+import { styled } from "@mui/material/styles";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import MailIcon from "@mui/icons-material/Mail";
+import LockIcon from "@mui/icons-material/Lock";
+import SendIcon from "@mui/icons-material/Send";
+import Fab from "@mui/material/Fab";
+import PeopleIcon from "@mui/icons-material/People";
 export const ChatPage = () => {
   const user = "user";
+  const lastMsg = useRef(null);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
@@ -32,8 +41,14 @@ export const ChatPage = () => {
   const [image, setImage] = useState(null);
   const [hiddenMsg, setHiddenMsg] = useState(null);
   const [msg, setMsg] = useState("");
+  const [render, setRender] = useState(false);
+  const [msgRpws, setMsgRows] = useState(5);
+  const [showSend, setShowSend] = useState(false);
   const navigate = useNavigate();
-
+  const [currentUser, setCurrentUser] = useState(
+    JSON.parse(sessionStorage.getItem(user))
+  );
+  const [newMessage, setNewMessage] = useState("Message");
   const StyledBox = styled(Box)(({ theme }) => ({
     backgroundColor: theme.palette.mode === "light" ? "#fff" : grey[800],
   }));
@@ -93,7 +108,37 @@ export const ChatPage = () => {
     console.log(msg);
     setMsg(msg);
   };
-
+  const handleMessageChange = (event) => {
+    if (event.target.value === "" || event.target.value === "Message")
+      setShowSend(false);
+    else setShowSend(true);
+    setNewMessage(event.target.value);
+  };
+  const handleSendMessage = () => {
+    console.log(selectedUser);
+    const id =
+      currentUser.username +
+      "#" +
+      new Date().toTimeString().split(" ")[0] +
+      "#" +
+      Math.floor(Math.random() * 100000000);
+    const tokens = tokenize(
+      newMessage,
+      id,
+      selectedUser ? selectedUser.user : "unknown"
+    );
+    console.log(tokens);
+    //for testing purposes
+    const remainder = Math.floor(Math.random() * 100) % 2;
+    const flag = remainder === 0 ? false : true;
+    selectedUser.messages.push({
+      received: flag,
+      content: newMessage,
+    });
+    console.log(selectedUser.messages);
+    setRender(!render);
+    if (lastMsg) lastMsg.current.scrollIntoView();
+  };
   const handleOpenSnackbar = () => {
     setOpenSnackbar(true);
   };
@@ -131,6 +176,55 @@ export const ChatPage = () => {
   }, [navigate]);
   return (
     <div className="chat-page">
+      <Box sx={{ flexGrow: 1 }}>
+        <AppBar position="static">
+          <Toolbar>
+            <Typography
+              variant="h6"
+              noWrap
+              component="div"
+              sx={{ display: { xs: "none", sm: "block" } }}
+            >
+              Secure Chat
+            </Typography>
+            <LockIcon
+              sx={{ marginLeft: 1, display: { xs: "none", sm: "block" } }}
+            ></LockIcon>
+
+            <Box sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }} />
+            <StyledBadge
+              overlap="circular"
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              variant="dot"
+            >
+              <Avatar
+                src={avatar}
+                className="avatar-img"
+                alt="avatar"
+                sx={{ width: 45, height: 45, bgcolor: "black" }}
+              ></Avatar>
+            </StyledBadge>
+            <Typography sx={{ marginRight: 2, marginLeft: 2 }}>
+              {currentUser.username}
+            </Typography>
+            <Box sx={{ display: { xs: "flex", md: "flex", marginRight: 70 } }}>
+              <Badge badgeContent={4} color="error">
+                <MailIcon />
+              </Badge>
+            </Box>
+            <Button
+              size="small"
+              color="error"
+              aria-label="add an alarm"
+              onClick={logoutUser}
+              id="logout-btn"
+              sx={{ borderRadius: "10px" }}
+            >
+              <PowerSettingsNewIcon />
+            </Button>
+          </Toolbar>
+        </AppBar>
+      </Box>
       <CssBaseline />
       <Global
         styles={{
@@ -155,39 +249,114 @@ export const ChatPage = () => {
           {snackbarMessage}
         </MuiAlert>
       </Snackbar>
-      <IconButton color="primary" aria-label="upload picture" component="label">
-        <input
-          hidden
-          accept="image/*"
-          type="file"
-          onChange={(event) => readURL(event)}
-        />
-        <PhotoCamera />
-      </IconButton>
 
-      {image && <img src={image} alt="source"></img>}
+      {/* {image && <img src={image} alt="source"></img>}
       <button onClick={hideMsg}>Hide</button>
       {hiddenMsg && <img src={hiddenMsg} alt="hidden"></img>}
       <button onClick={revealMsg}>Reveal</button>
-      <p>{msg}</p>
+      <p>{msg}</p> */}
+
       <Fab
-        color="error"
         aria-label="add"
         size="small"
         sx={{
+          display: { xs: "none", sm: "flex" },
           position: "fixed",
           bottom: 5,
-          right: 20,
+          right: 10,
           zIndex: 1201,
         }}
-        onClick={logoutUser}
+        onClick={toggleDrawer(true)}
       >
         {" "}
-        <PowerSettingsNewIcon />
+        <PeopleIcon />
       </Fab>
-      <Box sx={{ textAlign: "center", pt: 1 }}>
-        <Button onClick={toggleDrawer(true)}>Open</Button>
-      </Box>
+      {selectedUser && (
+        <div className="chat-area">
+          <div className="messages">
+            {selectedUser.messages.map((m) => {
+              return (
+                <div
+                  className={
+                    m.received
+                      ? "message-wrapper-received"
+                      : "message-wrapper-sent"
+                  }
+                >
+                  <div
+                    className={
+                      "message received " + (m.received ? "received" : "sent")
+                    }
+                  >
+                    {m.received && (
+                      <Avatar
+                        src={selectedUser.avatar}
+                        className={"msg-avatar received-msg-avatar"}
+                        alt="avatar"
+                        sx={{ width: 35, height: 35, bgcolor: "black" }}
+                      ></Avatar>
+                    )}
+
+                    <pre>{m.content}</pre>
+                    {!m.received && (
+                      <Avatar
+                        src={avatar}
+                        className="msg-avatar sent-msg-avatar"
+                        alt="avatar"
+                        sx={{ width: 35, height: 35, bgcolor: "black" }}
+                      ></Avatar>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div id="end" ref={lastMsg}></div>
+          </div>
+          <div className="new-message-wrapper">
+            <div className="new-message">
+              <IconButton
+                color="primary"
+                aria-label="upload picture"
+                component="label"
+                size="medium"
+                className="buttons"
+              >
+                <input
+                  hidden
+                  accept="image/*"
+                  type="file"
+                  onChange={(event) => readURL(event)}
+                />
+                <PhotoCamera fontSize="inherit" />
+              </IconButton>
+              <TextField
+                size="small"
+                id="new-message-input"
+                multiline
+                fullWidth={!showSend ? false : true}
+                maxRows={msgRpws}
+                value={newMessage}
+                onChange={handleMessageChange}
+                onFocus={() => {
+                  if (newMessage === "" || newMessage === "Message")
+                    handleMessageChange({ target: { value: "" } });
+                  setMsgRows(5);
+                }}
+                onBlur={() => {
+                  if (newMessage === "")
+                    handleMessageChange({ target: { value: "Message" } });
+                  setMsgRows(1);
+                }}
+              ></TextField>
+              {showSend && (
+                <IconButton size="medium" onClick={handleSendMessage}>
+                  <SendIcon color="primary" fontSize="inherit"></SendIcon>
+                </IconButton>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <SwipeableDrawer
         anchor="bottom"
         open={open}

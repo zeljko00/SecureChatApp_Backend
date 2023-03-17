@@ -41,3 +41,115 @@
     1px 3px 1px 2px rgba(170, 20, 20, 0.12); 
 }
 button{padding: 0}
+
+.messages{
+  
+    max-height: calc( 100vh - 175px );
+    overflow: auto;
+    z-index: 1000;
+}
+.new-message{
+    padding: 5px;
+    background-color: white;
+    display: flex;
+    flex-direction: row;
+width: 100%;
+    max-width: 500px;
+   
+}
+.new-message-wrapper{
+   background-color: white;
+    position: fixed;
+    bottom: 56px;
+    width: 100%;
+
+}
+@media screen and (max-width: 600px) {
+    .new-message{
+        align-items:end;
+    }
+    pre{
+        max-width: 80vw;
+    }
+}
+@media screen and (min-width: 600px) {
+    .new-message{
+        align-items:end;
+    }
+    pre{
+        max-width: 600px;
+    }
+}
+#logout-btn{
+    position: absolute;
+    right: 10px;
+    width: 35px;
+    height: 35px;
+    min-width: 0 !important;
+    padding: 0;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    background-color: #d32f2f;
+    color: white;
+}
+#new-message-input{
+   
+}
+.buttons{
+    margin-top: 2px;
+}
+.message{
+
+    border-radius: 10px;
+    padding: 10px;
+    background-color: aliceblue;
+    display: inline-flex;
+   
+  
+
+}
+.received{
+    background-color: #1976d2;
+    color: white;
+    color: black;
+    margin-left: 10px;
+}
+.sent{
+    background-color: #ffffff;
+    color: #1976d2;
+    margin-right: 10px;
+    border: solid 1.8px #1976d2 ;
+    font-weight: 650;
+}
+.message-wrapper-received{
+display: flex;
+justify-content: left;
+margin: 5px;
+margin-bottom: 12px;
+}
+.message-wrapper-sent{
+    display: flex;
+    justify-content: right;
+    margin: 5px;
+    margin-bottom: 12px;
+    }
+
+pre{
+    margin: 0;
+        overflow: hidden;
+      text-overflow: ellipsis;
+      white-space:pre-wrap;
+
+}
+.msg-avatar{
+    position: relative !important;
+    top:-15px;
+    
+}
+.received-msg-avatar{left: -15px}
+.sent-msg-avatar{right: -15px}
+#end{
+    min-height: 20px;
+    margin-top: 50px;
+}
+
