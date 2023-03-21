@@ -37,13 +37,12 @@ export const LoginPage = () => {
         handleOpenSnackbar();
       })
       .then((response) => {
-        sessionStorage.setItem(
-          user,
-          JSON.stringify({ username: username, password: password })
-        );
-        sessionStorage.setItem(token, response.data);
-        document.getElementById("inpLock").checked = false;
-        window.setTimeout(() => navigate("/SecureChat/chatroom"), 1500);
+        if (response !== undefined) {
+          sessionStorage.setItem(user, username);
+          sessionStorage.setItem(token, response.data);
+          document.getElementById("inpLock").checked = false;
+          window.setTimeout(() => navigate("/SecureChat/chatroom"), 1500);
+        }
       });
   };
   const signUp = () => {

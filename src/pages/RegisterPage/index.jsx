@@ -54,12 +54,11 @@ export const RegisterPage = () => {
           handleOpenSnackbar();
         })
         .then((response) => {
-          sessionStorage.setItem(
-            user,
-            JSON.stringify({ username: username, password: password })
-          );
-          sessionStorage.setItem(token, response.data);
-          navigate("/SecureChat/chatroom");
+          if (response !== undefined) {
+            sessionStorage.setItem(user, username);
+            sessionStorage.setItem(token, response.data);
+            navigate("/SecureChat/chatroom");
+          }
         });
     }
   };

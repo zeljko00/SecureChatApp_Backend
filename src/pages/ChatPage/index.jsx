@@ -1,7 +1,13 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from "react";
+import { over } from "stompjs";
+import SocketJS from "sockjs-client";
 import { useNavigate } from "react-router-dom";
-import { onlineUsers, assignAvatar, logout } from "../../services/user.service";
+import {
+  onlineUsers,
+  assignAvatar,
+  assignAvatarToSingleUser,
+} from "../../services/user.service";
 import { encode } from "../../services/steg.service/encode";
 import { decode } from "../../services/steg.service/decode";
 import { tokenize } from "../../services/message.service";
@@ -30,8 +36,13 @@ import LockIcon from "@mui/icons-material/Lock";
 import SendIcon from "@mui/icons-material/Send";
 import Fab from "@mui/material/Fab";
 import PeopleIcon from "@mui/icons-material/People";
+import { BASE_URL } from "../../services/axios.service";
+
+let stompClient = null;
+
 export const ChatPage = () => {
-  const user = "user";
+  const usernameItem = "user";
+  const tokenItem = "token";
   const lastMsg = useRef(null);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -39,16 +50,18 @@ export const ChatPage = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const drawerBleeding = 50;
   const [image, setImage] = useState(null);
-  const [hiddenMsg, setHiddenMsg] = useState(null);
-  const [msg, setMsg] = useState("");
+  const [user, setUser] = useState({
+    username: "",
+    joined: false,
+    token: "",
+  });
+  const [message, setMessage] = useState("Message");
   const [render, setRender] = useState(false);
   const [msgRpws, setMsgRows] = useState(5);
   const [showSend, setShowSend] = useState(false);
+  const [open, setOpen] = React.useState(false);
+
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState(
-    JSON.parse(sessionStorage.getItem(user))
-  );
-  const [newMessage, setNewMessage] = useState("Message");
   const StyledBox = styled(Box)(({ theme }) => ({
     backgroundColor: theme.palette.mode === "light" ? "#fff" : grey[800],
   }));
@@ -101,41 +114,37 @@ export const ChatPage = () => {
   const hideMsg = () => {
     const encoded = encode("secret", image);
     console.log(encoded);
-    setHiddenMsg(encoded);
   };
-  const revealMsg = () => {
-    const msg = decode(hiddenMsg);
-    console.log(msg);
-    setMsg(msg);
+  const revealMsg = (msg) => {
+    const decoded = decode(msg);
+    console.log(decoded);
   };
+
   const handleMessageChange = (event) => {
     if (event.target.value === "" || event.target.value === "Message")
       setShowSend(false);
     else setShowSend(true);
-    setNewMessage(event.target.value);
+    setMessage(event.target.value);
   };
   const handleSendMessage = () => {
     console.log(selectedUser);
     const id =
-      currentUser.username +
+      user.username +
       "#" +
       new Date().toTimeString().split(" ")[0] +
       "#" +
       Math.floor(Math.random() * 100000000);
     const tokens = tokenize(
-      newMessage,
+      message,
       id,
       selectedUser ? selectedUser.user : "unknown"
     );
     console.log(tokens);
-    //for testing purposes
-    const remainder = Math.floor(Math.random() * 100) % 2;
-    const flag = remainder === 0 ? false : true;
+
     selectedUser.messages.push({
-      received: flag,
-      content: newMessage,
+      received: false,
+      content: message,
     });
-    console.log(selectedUser.messages);
     setRender(!render);
     if (lastMsg) lastMsg.current.scrollIntoView();
   };
@@ -149,31 +158,80 @@ export const ChatPage = () => {
     setOpenSnackbar(false);
   };
   const logoutUser = () => {
-    const user = JSON.parse(sessionStorage.getItem("user"));
-    if (user) {
-      logout(user.username, user.password).then(() => sessionStorage.clear());
-
-      navigate("/SecureChat");
-    }
+    // const user = JSON.parse(sessionStorage.getItem("user"));
+    // if (user) {
+    //   // logout(user.username, user.password).then(() => sessionStorage.clear());
+    //   // iskoristiti ws za logout
+    //   navigate("/SecureChat");
+    // }
   };
-  const [open, setOpen] = React.useState(false);
 
   const toggleDrawer = (newOpen) => () => {
     setOpen(newOpen);
   };
+  const onConnectionEstablished = (userObj) => {
+    //timeout after establishing connection required from unknown reasons
+    setTimeout(() => {
+      console.log("Connection established");
+      stompClient.subscribe("/chatroom/users/active", newActiveUserNotify); // subscribing user to topic that stores active users' usernames
+      stompClient.subscribe("/chatroom/users/left", userLeftNotify); // subscribing user to topic that stores active users' usernames
+      stompClient.send(
+        "/app/chatroom/join",
+        {},
+        JSON.stringify({ username: userObj.username, token: userObj.token })
+      );
+      stompClient.subscribe(
+        "/user/" + userObj.username + "/inbox",
+        messageReceived
+      ); // subscribing user to topic that represents his chat inbox
+      setUser({
+        username: userObj.username,
+        joined: true,
+        token: userObj.token,
+      });
+    }, 1000);
+  };
+  const userLeftNotify = () => {};
+  const newActiveUserNotify = (payload) => {
+    const newUser = assignAvatarToSingleUser(payload.body, user.username);
+    if (newUser !== null) {
+      console.log(users);
+      users.push(newUser);
+      console.log(users);
+      setUsers(users);
+    } else console.log("this user joined!");
+  };
+  const messageReceived = (payload) => {
+    console.log("New message: ");
+    console.log(payload.body);
+  };
+  const onError = () => {
+    setSnackbarMessage("Chat service unavailable!");
+    setOpenSnackbar(true);
+  };
   useEffect(() => {
-    const user = JSON.parse(sessionStorage.getItem("user"));
+    const username = sessionStorage.getItem(usernameItem);
+    const token = sessionStorage.getItem(tokenItem);
+    const userObj = { username, token, joined: user.joined };
+    console.log(userObj);
     if (!user) {
       console.log("triggered");
       navigate("/SecureChat");
     } else {
+      setUser(userObj);
       onlineUsers()
-        .catch()
+        .catch(() => {})
         .then((response) => {
-          setUsers(assignAvatar(response.data, user.username));
+          console.log(assignAvatar(response.data, username));
+          if (response !== undefined)
+            setUsers(assignAvatar(response.data, username));
         });
+      const socket = new SocketJS(BASE_URL + "ws");
+      stompClient = over(socket);
+      stompClient.connect({}, () => onConnectionEstablished(userObj), onError);
     }
-  }, [navigate]);
+  }, []);
+
   return (
     <div className="chat-page">
       <Box sx={{ flexGrow: 1 }}>
@@ -205,7 +263,7 @@ export const ChatPage = () => {
               ></Avatar>
             </StyledBadge>
             <Typography sx={{ marginRight: 2, marginLeft: 2 }}>
-              {currentUser.username}
+              {user.username}
             </Typography>
             <Box sx={{ display: { xs: "flex", md: "flex", marginRight: 70 } }}>
               <Badge badgeContent={4} color="error">
@@ -335,15 +393,15 @@ export const ChatPage = () => {
                 multiline
                 fullWidth={!showSend ? false : true}
                 maxRows={msgRpws}
-                value={newMessage}
+                value={message}
                 onChange={handleMessageChange}
                 onFocus={() => {
-                  if (newMessage === "" || newMessage === "Message")
+                  if (message === "" || message === "Message")
                     handleMessageChange({ target: { value: "" } });
                   setMsgRows(5);
                 }}
                 onBlur={() => {
-                  if (newMessage === "")
+                  if (message === "")
                     handleMessageChange({ target: { value: "Message" } });
                   setMsgRows(1);
                 }}
@@ -404,6 +462,7 @@ export const ChatPage = () => {
           }}
         >
           <div className="online-users">
+            {console.log(users)}
             {users.map((user) => {
               return (
                 <button
