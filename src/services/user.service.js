@@ -31,129 +31,61 @@ export function register(username, password) {
     password: password,
   });
 }
-// export function logout(username, password) {
-//   return client.post(BASE_URL + "users/logout", {
-//     username: username,
-//     password: password,
-//   });
-// }
 export function onlineUsers() {
   return client.get(BASE_URL + "users");
 }
-export function assignAvatar(users, user) {
-  const temp = users.filter((u) => {
-    return u !== user;
-  });
-  return temp.map((user) => {
-    const random = Math.floor(Math.random() * 15) + 1;
-    let avatar;
-    switch (random) {
-      case 1:
-        avatar = avatar1;
-        break;
-      case 2:
-        avatar = avatar2;
-        break;
-      case 3:
-        avatar = avatar3;
-        break;
-      case 4:
-        avatar = avatar4;
-        break;
-      case 5:
-        avatar = avatar5;
-        break;
-      case 6:
-        avatar = avatar6;
-        break;
-      case 7:
-        avatar = avatar7;
-        break;
-      case 8:
-        avatar = avatar8;
-        break;
-      case 9:
-        avatar = avatar9;
-        break;
-      case 10:
-        avatar = avatar10;
-        break;
-      case 11:
-        avatar = avatar11;
-        break;
-      case 12:
-        avatar = avatar12;
-        break;
-      case 13:
-        avatar = avatar13;
-        break;
-      case 14:
-        avatar = avatar14;
-        break;
-      default:
-        avatar = avatar15;
-    }
-    return {
-      user,
-      avatar,
-      messages: [],
-    };
-  });
-}
-export function assignAvatarToSingleUser(newUser, user) {
-  if (newUser !== user) {
-    const random = Math.floor(Math.random() * 15) + 1;
-    let avatar;
-    switch (random) {
-      case 1:
-        avatar = avatar1;
-        break;
-      case 2:
-        avatar = avatar2;
-        break;
-      case 3:
-        avatar = avatar3;
-        break;
-      case 4:
-        avatar = avatar4;
-        break;
-      case 5:
-        avatar = avatar5;
-        break;
-      case 6:
-        avatar = avatar6;
-        break;
-      case 7:
-        avatar = avatar7;
-        break;
-      case 8:
-        avatar = avatar8;
-        break;
-      case 9:
-        avatar = avatar9;
-        break;
-      case 10:
-        avatar = avatar10;
-        break;
-      case 11:
-        avatar = avatar11;
-        break;
-      case 12:
-        avatar = avatar12;
-        break;
-      case 13:
-        avatar = avatar13;
-        break;
-      case 14:
-        avatar = avatar14;
-        break;
-      default:
-        avatar = avatar15;
-    }
-    return {
-      user,
-      avatar,
-      messages: [],
-    };
-  } else return null;
+export function assignAvatar(user) {
+  const random = Math.floor(Math.random() * 15) + 1;
+  let avatar;
+  switch (random) {
+    case 1:
+      avatar = avatar1;
+      break;
+    case 2:
+      avatar = avatar2;
+      break;
+    case 3:
+      avatar = avatar3;
+      break;
+    case 4:
+      avatar = avatar4;
+      break;
+    case 5:
+      avatar = avatar5;
+      break;
+    case 6:
+      avatar = avatar6;
+      break;
+    case 7:
+      avatar = avatar7;
+      break;
+    case 8:
+      avatar = avatar8;
+      break;
+    case 9:
+      avatar = avatar9;
+      break;
+    case 10:
+      avatar = avatar10;
+      break;
+    case 11:
+      avatar = avatar11;
+      break;
+    case 12:
+      avatar = avatar12;
+      break;
+    case 13:
+      avatar = avatar13;
+      break;
+    case 14:
+      avatar = avatar14;
+      break;
+    default:
+      avatar = avatar15;
+  }
+  return {
+    user,
+    avatar,
+    messages: [],
+  };
 }

@@ -16,6 +16,6 @@ export const tokenize = (msg, id, to) => {
   } else result = arr1;
   let counter = 1;
   return result.map((t) => {
-    return to + "%" + id + "#" + counter++ + "/" + n + "||" + t;
+    return { recepient: to, content: id + "#" + counter++ + "/" + n + ":" + t };
   });
 };

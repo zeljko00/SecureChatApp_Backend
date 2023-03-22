@@ -20,7 +20,6 @@ export const RegisterPage = () => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const navigate = useNavigate();
-  const user = "user";
   const token = "token";
 
   const handleChangeUsername = (event) => {
@@ -55,9 +54,13 @@ export const RegisterPage = () => {
         })
         .then((response) => {
           if (response !== undefined) {
-            sessionStorage.setItem(user, username);
+            const userObj = { username, token: response.data };
             sessionStorage.setItem(token, response.data);
-            navigate("/SecureChat/chatroom");
+            navigate("/SecureChat/chatroom", {
+              state: JSON.stringify({
+                user: userObj,
+              }),
+            });
           }
         });
     }
