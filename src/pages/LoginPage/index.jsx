@@ -117,6 +117,11 @@ export const LoginPage = () => {
         onChange={(event) => {
           setPassword(event.target.value);
         }}
+        onKeyUp={(e) => {
+          if (e.keyCode === 13) {
+            signIn();
+          }
+        }}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">

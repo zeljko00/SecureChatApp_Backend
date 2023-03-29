@@ -1,6 +1,8 @@
 import { createAxiosClient } from "./request.interceptor";
-export const BASE_URL = "http://192.168.100.8:8080/SecureChat/";
-// export const BASE_URL = "http://localhost:8080/SecureChat/";
+
+const host = "192.168.100.8";
+export const BASE_URL = "http://" + host + ":8080/SecureChat/";
+
 function getToken() {
   try {
     const token = sessionStorage.getItem("token");

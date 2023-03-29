@@ -1,6 +1,6 @@
 .online-users{
     padding: 10px;
-    background-color: #121212 !important;
+    background-color: #1976d2 !important;
 }
 .avatar-img{
     width: 60px;
@@ -10,7 +10,7 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    background-color: #1e1e1e !important;
+    background-color: #bbdefb !important;
     padding-left: 20px;
     padding-bottom: 10px;
     padding-top: 10px;
@@ -22,7 +22,7 @@
     height: 100%;
     font-size: 18px;
     align-items: center;
-    background-color: #1e1e1e !important;
+    background-color: transparent !important;
 }
 .avatar-button{
     background-color: transparent;
@@ -36,7 +36,7 @@
 
 }
 .avatar-button:hover, .glow{
-    box-shadow:  3px 1px 5px 1px rgba(72, 13, 180, 0.726),
+    box-shadow:  4px 2px 6px 2px #0d46a1,
     1px 2px 2px 1px rgba(168, 30, 30, 0.14),
     1px 3px 1px 2px rgba(170, 20, 20, 0.12); 
 }
@@ -44,9 +44,10 @@ button{padding: 0}
 
 .messages{
   
-    max-height: calc( 100vh - 175px );
+    max-height: calc( 100vh - 235px );
     overflow: auto;
     z-index: 1000;
+    margin-bottom: 85px;
 }
 .new-message{
     padding: 5px;
@@ -60,7 +61,7 @@ width: 100%;
 .new-message-wrapper{
    background-color: white;
     position: fixed;
-    bottom: 56px;
+    bottom: 52px;
     width: 100%;
 
 }
@@ -109,16 +110,15 @@ width: 100%;
 
 }
 .received{
-    background-color: #1976d2;
+    background-color: #bbdefb;
     color: white;
     color: black;
     margin-left: 10px;
 }
 .sent{
-    background-color: #ffffff;
+    background-color: #dce4eb;
     color: #1976d2;
     margin-right: 10px;
-    border: solid 1.8px #1976d2 ;
     font-weight: 650;
 }
 .message-wrapper-received{
@@ -148,8 +148,11 @@ pre{
 }
 .received-msg-avatar{left: -15px}
 .sent-msg-avatar{right: -15px}
-#end{
-    min-height: 20px;
-    margin-top: 50px;
+.selected-user{
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    padding-left: 18px;
+    border-bottom: solid 2px #1976d2;
 }
 

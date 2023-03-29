@@ -1,13 +1,19 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { flushSync } from "react-dom";
 import { over } from "stompjs";
 import SocketJS from "sockjs-client";
 import { onlineUsers, assignAvatar } from "../../services/user.service";
 import { BASE_URL } from "../../services/axios.service";
+import {
+  tokenize,
+  imageAvailable,
+  readURL,
+  decodeMsg,
+} from "../../services/message.service";
 import { encode } from "../../services/steg.service/encode";
 import { decode } from "../../services/steg.service/decode";
-import { tokenize } from "../../services/message.service";
 import Snackbar from "@mui/material/Snackbar";
 import MuiAlert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
@@ -40,21 +46,23 @@ export const ChatPage = () => {
   const navigate = useNavigate();
   const state = useLocation().state;
   let blocked = false;
+  const maxWindowWidth = 768;
   const lastMsg = useRef(null);
   const [users, setUsers] = useState(new Map());
+  const [chats, setChats] = useState(new Map());
+  const [msgs, setMsgs] = useState(new Map());
   const [joined, setJoined] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const drawerBleeding = 50;
-  const [image, setImage] = useState(null);
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("Message");
   const [render, setRender] = useState(false);
   const [msgRpws, setMsgRows] = useState(5);
   const [showSend, setShowSend] = useState(false);
   const [open, setOpen] = React.useState(false);
-
+  const receivedMsgs = [];
   const StyledBox = styled(Box)(({ theme }) => ({
     backgroundColor: theme.palette.mode === "light" ? "#fff" : grey[800],
   }));
@@ -95,52 +103,67 @@ export const ChatPage = () => {
     top: 8,
     left: "calc(50% - 15px)",
   }));
-  const readURL = (input) => {
-    console.log(input.target.files);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      console.log(e.target.result);
-      setImage(e.target.result);
-    };
-    reader.readAsDataURL(input.target.files[0]);
-  };
-  const hideMsg = () => {
-    const encoded = encode("secret", image);
-    console.log(encoded);
-  };
-  const revealMsg = (msg) => {
-    const decoded = decode(msg);
-    console.log(decoded);
-  };
 
+  const reconnect = () => {
+    // console.log("reconnecting");
+    const socket = new SocketJS(BASE_URL + "ws");
+    stompClient = over(socket);
+    stompClient.connect(
+      {},
+      () => onConnectionEstablished(user, users),
+      onError
+    );
+  };
   const handleMessageChange = (event) => {
     if (event.target.value === "" || event.target.value === "Message")
       setShowSend(false);
     else setShowSend(true);
     setMessage(event.target.value);
   };
-  const handleSendMessage = () => {
-    const id =
-      user.username +
-      "#" +
-      new Date().toTimeString().split(" ")[0] +
-      "#" +
-      Math.floor(Math.random() * 100000000);
-    const tokens = tokenize(
-      message,
-      id,
-      selectedUser ? selectedUser.user : "unknown"
-    );
-    console.log(tokens);
-    tokens.forEach((t) =>
-      stompClient.send("/app/chatroom", {}, JSON.stringify(t))
-    );
-    selectedUser.messages.push({
-      received: false,
-      content: message,
-    });
-    setRender(!render);
-    if (lastMsg) lastMsg.current.scrollIntoView();
+  const sendMessage = (message) => {
+    if (imageAvailable()) {
+      if (
+        message &&
+        message !== "" &&
+        message.replace(/(?:\r\n|\r|\n)/g, "") !== "" &&
+        message.replace(/\s/g, "") !== ""
+      ) {
+        // console.log("SENDING: " + message + " !!!!!!!!!!!!!!!!!!!!!!!");
+        const tokens = tokenize(
+          message,
+          user.username,
+          selectedUser ? selectedUser : "unknown",
+          user.token
+        );
+        console.log(tokens);
+        tokens.forEach((t) => {
+          try {
+            stompClient.send("/app/chatroom", {}, JSON.stringify(t));
+          } catch (e) {
+            // console.log(e);
+          }
+        });
+        flushSync(() => {
+          if (!chats.has(selectedUser)) chats.set(selectedUser, []);
+          chats.get(selectedUser).push({
+            received: false,
+            content: message,
+          });
+          setMessage("");
+          setChats(new Map(chats));
+        });
+        if (lastMsg && lastMsg.current) lastMsg.current.scrollIntoView(false);
+      }
+    } else {
+      setSnackbarMessage("Niste odabrali fotografiju!");
+      setOpenSnackbar(true);
+    }
+  };
+  const handleSendMessage = (message) => {
+    if (stompClient === null) {
+      reconnect();
+      setTimeout(() => sendMessage(message), 400);
+    } else sendMessage(message);
   };
   const handleOpenSnackbar = () => {
     setOpenSnackbar(true);
@@ -152,10 +175,15 @@ export const ChatPage = () => {
     setOpenSnackbar(false);
   };
   const logoutUser = () => {
+    if (stompClient === null) {
+      reconnect();
+      setTimeout(() => logout(), 800);
+    } else logout();
+  };
+  const logout = () => {
     stompClient.send("/app/chatroom/leave", {}, user.token);
     navigate("/SecureChat");
   };
-
   const toggleDrawer = (newOpen) => () => {
     setOpen(newOpen);
   };
@@ -169,41 +197,88 @@ export const ChatPage = () => {
         userLeftNotify(payload, usersMap)
       ); // subscribing user to topic that stores active users' usernames
       stompClient.send("/app/chatroom/join", {}, userObj.token);
-      stompClient.subscribe(
-        "/user/" + userObj.username + "/inbox",
-        messageReceived
+      stompClient.subscribe("/user/" + userObj.username + "/inbox", (payload) =>
+        messageReceived(payload, usersMap)
       ); // subscribing user to topic that represents his chat inbox
       setJoined(true);
-    }, 1000);
+    }, 100);
   };
   const onError = () => {};
   const userLeftNotify = (payload, usersMap) => {
-    console.log("LEFT LEFT LEFT LEFT USER!!!!!   " + payload.body);
+    // console.log("LEFT LEFT LEFT LEFT USER!!!!!   " + payload.body);
+
     if (payload.body !== JSON.parse(state).user.username) {
-      while (blocked) console.log("waiting");
-      blocked = true;
-      console.log(Array.from(usersMap.values()));
+      // while (blocked) console.log("waiting");
+      // blocked = true;
+      // console.log(Array.from(usersMap.values()));
       usersMap.delete(payload.body);
-      console.log(Array.from(usersMap.values()));
-      setUsers(usersMap);
+      // console.log(Array.from(usersMap.values()));
+      setUsers(new Map(usersMap));
       blocked = false;
+      if (payload.body === selectedUser) setSelectedUser(null);
     } else console.log("SAME");
   };
   const newActiveUserNotify = (payload, usersMap) => {
-    console.log(" NEW NEW NEW NEW NEW " + payload.body);
     if (payload.body !== JSON.parse(state).user.username) {
-      while (blocked) console.log("waiting");
-      blocked = true;
-      console.log(Array.from(usersMap.values()));
+      // console.log(Array.from(usersMap.values()));
       usersMap.set(payload.body, assignAvatar(payload.body));
-      console.log(Array.from(usersMap.values()));
-      setUsers(usersMap);
-      blocked = false;
-    } else console.log("SAME");
+      // console.log(Array.from(usersMap.values()));
+      setUsers(new Map(usersMap));
+    }
+  };
+  const assembleMsg = (msg) => {
+    try {
+      const tokens = msg.split("#");
+      const len = Number.parseInt(tokens[2].split("/")[1]);
+      flushSync(() => {
+        if (!msgs.has(tokens[0])) {
+          // console.log("msg from new user");
+          msgs.set(tokens[0], new Map());
+        }
+        if (!receivedMsgs.includes(tokens[1])) {
+          if (!msgs.get(tokens[0]).has(tokens[1]))
+            msgs.get(tokens[0]).set(tokens[1], new Map());
+          if (!msgs.get(tokens[0]).get(tokens[1]).has(tokens[2])) {
+            msgs.get(tokens[0]).get(tokens[1]).set(tokens[2], tokens[3]);
+          }
+          if (msgs.get(tokens[0]).get(tokens[1]).size === len) {
+            console.log(msgs.get(tokens[0]).get(tokens[1]));
+            // console.log("fragments collected");
+            receivedMsgs.push(tokens[1]);
+            // console.log(receivedMsgs);
+            const msgTokens = msgs.get(tokens[0]).get(tokens[1]);
+            let msg = "";
+            for (let i = 1; i <= msgTokens.size; i++) {
+              const key = i + "/" + len;
+              msg += msgTokens.get(key);
+            }
+            msgs.get(tokens[0]).delete(tokens[1]);
+            if (!chats.has(tokens[0])) chats.set(tokens[0], []);
+            chats.get(tokens[0]).push({
+              received: true,
+              content: msg.replace(/%%%/gm, "\n"),
+            });
+            setChats(new Map(chats));
+          }
+          setMsgs(new Map(msgs));
+        }
+      });
+    } catch (e) {}
+    if (lastMsg && lastMsg.current) lastMsg.current.scrollIntoView(false);
   };
   const messageReceived = (payload) => {
-    console.log("New message: ");
-    console.log(payload.body);
+    let msg = payload.body;
+    if (msg.startsWith("data:image")) {
+      console.log("Fragment to decode:");
+      console.log(msg);
+      const temp = new Image();
+      temp.src = msg;
+      temp.onload = () => {
+        console.log("loaded");
+        msg = decodeMsg(temp);
+        assembleMsg(msg.replace("엛", ""));
+      };
+    } else assembleMsg(msg);
   };
 
   useEffect(() => {
@@ -224,7 +299,7 @@ export const ChatPage = () => {
             array.forEach((u) => map.set(u.user, u));
             setUsers(map);
             if (!joined) {
-              console.log("Joining!");
+              // console.log("Joining!");
               const socket = new SocketJS(BASE_URL + "ws");
               stompClient = over(socket);
               stompClient.connect(
@@ -322,61 +397,79 @@ export const ChatPage = () => {
       {hiddenMsg && <img src={hiddenMsg} alt="hidden"></img>}
       <button onClick={revealMsg}>Reveal</button>
       <p>{msg}</p> */}
-
-        <Fab
-          aria-label="add"
-          size="small"
-          sx={{
-            display: { xs: "none", sm: "flex" },
-            position: "fixed",
-            bottom: 5,
-            right: 10,
-            zIndex: 1201,
-          }}
-          onClick={toggleDrawer(true)}
-        >
-          {" "}
-          <PeopleIcon />
-        </Fab>
-        {selectedUser && (
+        {!open && (
+          <Fab
+            aria-label="add"
+            size="small"
+            sx={{
+              display: { xs: "none", sm: "flex" },
+              position: "fixed",
+              bottom: 8,
+              right: "calc(50% - 20px)",
+              zIndex: 1201,
+            }}
+            onClick={toggleDrawer(true)}
+          >
+            {" "}
+            <PeopleIcon />
+          </Fab>
+        )}
+        {selectedUser && users.has(selectedUser) && (
           <div className="chat-area">
+            <div className="selected-user">
+              <StyledBadge
+                overlap="circular"
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                variant="dot"
+              >
+                <Avatar
+                  src={users.get(selectedUser).avatar}
+                  className="avatar-img"
+                  alt="avatar"
+                  sx={{ width: 45, height: 45, bgcolor: "black" }}
+                ></Avatar>
+              </StyledBadge>
+              <div className="username">{users.get(selectedUser).user}</div>
+            </div>
             <div className="messages">
-              {selectedUser.messages.map((m) => {
-                return (
-                  <div
-                    className={
-                      m.received
-                        ? "message-wrapper-received"
-                        : "message-wrapper-sent"
-                    }
-                  >
+              {chats.get(selectedUser) &&
+                chats.get(selectedUser).map((m) => {
+                  return (
                     <div
                       className={
-                        "message received " + (m.received ? "received" : "sent")
+                        m.received
+                          ? "message-wrapper-received"
+                          : "message-wrapper-sent"
                       }
                     >
-                      {m.received && (
-                        <Avatar
-                          src={selectedUser.avatar}
-                          className={"msg-avatar received-msg-avatar"}
-                          alt="avatar"
-                          sx={{ width: 35, height: 35, bgcolor: "black" }}
-                        ></Avatar>
-                      )}
+                      <div
+                        className={
+                          "message received " +
+                          (m.received ? "received" : "sent")
+                        }
+                      >
+                        {m.received && (
+                          <Avatar
+                            src={users.get(selectedUser).avatar}
+                            className={"msg-avatar received-msg-avatar"}
+                            alt="avatar"
+                            sx={{ width: 35, height: 35, bgcolor: "black" }}
+                          ></Avatar>
+                        )}
 
-                      <pre>{m.content}</pre>
-                      {!m.received && (
-                        <Avatar
-                          src={avatar}
-                          className="msg-avatar sent-msg-avatar"
-                          alt="avatar"
-                          sx={{ width: 35, height: 35, bgcolor: "black" }}
-                        ></Avatar>
-                      )}
+                        <pre>{m.content}</pre>
+                        {!m.received && (
+                          <Avatar
+                            src={avatar}
+                            className="msg-avatar sent-msg-avatar"
+                            alt="avatar"
+                            sx={{ width: 35, height: 35, bgcolor: "black" }}
+                          ></Avatar>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               <div id="end" ref={lastMsg}></div>
             </div>
             <div className="new-message-wrapper">
@@ -404,6 +497,19 @@ export const ChatPage = () => {
                   maxRows={msgRpws}
                   value={message}
                   onChange={handleMessageChange}
+                  onKeyUp={(e) => {
+                    e.preventDefault();
+                    // console.log(window.innerWidth);
+                    const temp = message.substring(0, message.length - 1);
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      window.innerWidth >= maxWindowWidth
+                    ) {
+                      setMessage(temp);
+                      handleSendMessage(temp);
+                    }
+                  }}
                   onFocus={() => {
                     if (message === "" || message === "Message")
                       handleMessageChange({ target: { value: "" } });
@@ -416,7 +522,10 @@ export const ChatPage = () => {
                   }}
                 ></TextField>
                 {showSend && (
-                  <IconButton size="medium" onClick={handleSendMessage}>
+                  <IconButton
+                    size="medium"
+                    onClick={() => handleSendMessage(message)}
+                  >
                     <SendIcon color="primary" fontSize="inherit"></SendIcon>
                   </IconButton>
                 )}
@@ -437,8 +546,8 @@ export const ChatPage = () => {
           PaperProps={{
             sx: {
               div: {
-                backgroundColor: "#121212",
-                color: "rgba(255,255,255,.7)",
+                backgroundColor: "#1976d2",
+                color: "#1976d2",
                 div: {
                   backgroundColor: "rgba(255,255,255,.7)",
                 },
@@ -471,16 +580,18 @@ export const ChatPage = () => {
             }}
           >
             <div className="online-users">
-              {/* {console.log(users.values())} */}
               {Array.from(users.values()).map((user) => {
                 return (
                   <button
                     className={
-                      selectedUser && selectedUser.user === user.user
+                      selectedUser && selectedUser === user.user
                         ? "avatar-button glow"
                         : "avatar-button"
                     }
-                    onClick={() => setSelectedUser(user)}
+                    onClick={() => {
+                      setOpen(false);
+                      setSelectedUser(user.user);
+                    }}
                   >
                     <div key={user.user} className="user-label">
                       <StyledBadge

@@ -1,25 +1,14 @@
 import { util } from "./util";
 import { config } from "./config";
-export const encode = function (message, image, options) {
-  // Handle image url
-  if (image.length) {
-    image = util.loadImg(image);
-  } else if (image.src) {
-    image = util.loadImg(image.src);
-  } else if (!(image instanceof HTMLImageElement)) {
-    throw new Error(
-      "IllegalInput: The input image is neither an URL string nor an image."
-    );
-  }
+export const encode = function (message, image) {
+  console.log(image);
 
-  options = options || {};
-
-  var t = options.t || config.t,
-    threshold = options.threshold || config.threshold,
-    codeUnitSize = options.codeUnitSize || config.codeUnitSize,
+  var t = config.t,
+    threshold = config.threshold,
+    codeUnitSize = config.codeUnitSize,
     prime = util.findNextPrime(Math.pow(2, t)),
-    args = options.args || config.args,
-    messageDelimiter = options.messageDelimiter || config.messageDelimiter;
+    args = config.args,
+    messageDelimiter = config.messageDelimiter;
 
   if (!t || t < 1 || t > 7)
     throw new Error(
@@ -30,13 +19,11 @@ export const encode = function (message, image, options) {
     shadowCtx = shadowCanvas.getContext("2d");
 
   shadowCanvas.style.display = "none";
-  shadowCanvas.width = options.width || image.width;
-  shadowCanvas.height = options.height || image.height;
-  if (options.height && options.width) {
-    shadowCtx.drawImage(image, 0, 0, options.width, options.height);
-  } else {
-    shadowCtx.drawImage(image, 0, 0);
-  }
+  shadowCanvas.width = image.width;
+  shadowCanvas.height = image.height;
+  console.log(image.width);
+
+  shadowCtx.drawImage(image, 0, 0);
 
   var imageData = shadowCtx.getImageData(
       0,
