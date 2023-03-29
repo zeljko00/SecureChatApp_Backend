@@ -19,6 +19,7 @@
     "react-scripts": "5.0.1",
     "sockjs-client": "^1.6.1",
     "stompjs": "^2.3.3",
+    "use-sound": "^4.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -44,5 +45,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "file-loader": "^6.2.0"
   }
 }

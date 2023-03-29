@@ -10,7 +10,7 @@ let image = null;
 export const imageAvailable = () => {
   return image !== null;
 };
-export const readURL = (input) => {
+export const readURL = (input, callback) => {
   const reader = new FileReader();
   reader.onload = (e) => {
     let img = e.target.result;
@@ -18,7 +18,9 @@ export const readURL = (input) => {
     temp.src = img;
     temp.onload = () => {
       console.log("loaded");
-      image = temp;
+      if (temp.naturalHeight > 2060 || temp.naturalWidth > 2060) {
+        callback();
+      } else image = temp;
     };
   };
   reader.readAsDataURL(input.target.files[0]);

@@ -39,17 +39,19 @@ import LockIcon from "@mui/icons-material/Lock";
 import SendIcon from "@mui/icons-material/Send";
 import Fab from "@mui/material/Fab";
 import PeopleIcon from "@mui/icons-material/People";
-
+import ring from "../../assets/audio/bell.wav";
 let stompClient = null;
-
 export const ChatPage = () => {
   const navigate = useNavigate();
   const state = useLocation().state;
   let blocked = false;
+  const bell = new Audio(ring);
   const maxWindowWidth = 768;
   const lastMsg = useRef(null);
   const [users, setUsers] = useState(new Map());
   const [chats, setChats] = useState(new Map());
+  const notifies = useRef([]);
+  const currentChat = useRef(null);
   const [msgs, setMsgs] = useState(new Map());
   const [joined, setJoined] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -63,6 +65,7 @@ export const ChatPage = () => {
   const [showSend, setShowSend] = useState(false);
   const [open, setOpen] = React.useState(false);
   const receivedMsgs = [];
+  const [arrivedMsgs, setArrivedMsgs] = useState(0);
   const StyledBox = styled(Box)(({ theme }) => ({
     backgroundColor: theme.palette.mode === "light" ? "#fff" : grey[800],
   }));
@@ -120,6 +123,10 @@ export const ChatPage = () => {
     else setShowSend(true);
     setMessage(event.target.value);
   };
+  const invalidImage = () => {
+    setSnackbarMessage("Max image width/height = 2060px");
+    setOpenSnackbar(true);
+  };
   const sendMessage = (message) => {
     if (imageAvailable()) {
       if (
@@ -155,7 +162,7 @@ export const ChatPage = () => {
         if (lastMsg && lastMsg.current) lastMsg.current.scrollIntoView(false);
       }
     } else {
-      setSnackbarMessage("Niste odabrali fotografiju!");
+      setSnackbarMessage("Pick photo first!");
       setOpenSnackbar(true);
     }
   };
@@ -173,6 +180,12 @@ export const ChatPage = () => {
       return;
     }
     setOpenSnackbar(false);
+  };
+  const handleSelectUser = (user) => {
+    setOpen(false);
+    decreaseArrivedMsgs(user);
+    currentChat.current = user;
+    setSelectedUser(user);
   };
   const logoutUser = () => {
     if (stompClient === null) {
@@ -258,7 +271,22 @@ export const ChatPage = () => {
               received: true,
               content: msg.replace(/%%%/gm, "\n"),
             });
+
             setChats(new Map(chats));
+            console.log(notifies.current);
+            console.log(currentChat.current);
+            if (
+              currentChat.current !== tokens[0] &&
+              !notifies.current.includes(tokens[0])
+            ) {
+              const temp = notifies.current;
+              temp.push(tokens[0]);
+              notifies.current = temp;
+              console.log("playing");
+
+              setArrivedMsgs(temp.length);
+            }
+            if (currentChat.current !== tokens[0]) new Audio(ring).play();
           }
           setMsgs(new Map(msgs));
         }
@@ -312,6 +340,13 @@ export const ChatPage = () => {
         });
     }
   }, []);
+  const decreaseArrivedMsgs = (user) => {
+    const index = notifies.current.indexOf(user);
+    if (index > -1) {
+      notifies.current.splice(index, 1);
+      setArrivedMsgs(notifies.current.length);
+    }
+  };
 
   return (
     user && (
@@ -350,7 +385,7 @@ export const ChatPage = () => {
               <Box
                 sx={{ display: { xs: "flex", md: "flex", marginRight: 70 } }}
               >
-                <Badge badgeContent={4} color="error">
+                <Badge badgeContent={arrivedMsgs} color="error">
                   <MailIcon />
                 </Badge>
               </Box>
@@ -485,7 +520,7 @@ export const ChatPage = () => {
                     hidden
                     accept="image/*"
                     type="file"
-                    onChange={(event) => readURL(event)}
+                    onChange={(event) => readURL(event, invalidImage)}
                   />
                   <PhotoCamera fontSize="inherit" />
                 </IconButton>
@@ -588,10 +623,7 @@ export const ChatPage = () => {
                         ? "avatar-button glow"
                         : "avatar-button"
                     }
-                    onClick={() => {
-                      setOpen(false);
-                      setSelectedUser(user.user);
-                    }}
+                    onClick={() => handleSelectUser(user.user)}
                   >
                     <div key={user.user} className="user-label">
                       <StyledBadge
