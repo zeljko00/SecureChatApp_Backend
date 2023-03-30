@@ -1,12 +1,11 @@
 import { encode } from "./steg.service/encode";
 import { decode } from "./steg.service/decode";
-import { formControlUnstyledClasses } from "@mui/base";
+import { encrypt } from "../services/crypto.service";
+// import { formControlUnstyledClasses } from "@mui/base";
 const MAX_SERVERS = 3;
 const MAX_TOKENS = 20;
 let image = null;
-// export const imageAvailable = () => {
-//   return image !== null;
-// };
+
 export const imageAvailable = () => {
   return image !== null;
 };
@@ -25,13 +24,13 @@ export const readURL = (input, callback) => {
   };
   reader.readAsDataURL(input.target.files[0]);
 };
-export const tokenize = (msg, sender, to, token) => {
+export const tokenize = (msg, sender, to, token, pk, sk) => {
+  console.log("recepient pk: " + pk);
+  console.log("sender sk: " + sk);
   if (image !== null) {
     msg = msg.replace(/[\r\n]/gm, "%%%");
     const random = Math.floor(Math.random() * (MAX_TOKENS - 2) + MAX_SERVERS);
-    // console.log(random);
     const n = random <= msg.length ? random : msg.length;
-    // console.log(n);
     const tokenLen = Math.floor(msg.length / n);
     const x = msg.length % n;
     const regex1 = new RegExp(".{" + tokenLen + "}", "g");
@@ -50,13 +49,19 @@ export const tokenize = (msg, sender, to, token) => {
       const stegIndex = Math.floor(Math.random() * result.length);
       return result.map((t) => {
         const index = counter - 1;
-        let fragment = sender + "#" + id + "#" + counter++ + "/" + n + "#" + t;
+        const content = id + "###" + counter++ + "/" + n + "###" + t;
+        const encrypted = encrypt(content, sk, pk);
+        let fragment = JSON.stringify(Object.values(encrypted.cipher_text));
+        const nonce = JSON.stringify(Object.values(encrypted.one_time_code));
+        console.log();
         if (index === stegIndex) {
           fragment = encode(fragment, image);
         }
         return {
           recepient: to,
+          sender,
           content: fragment,
+          nonce,
           token,
         };
       });

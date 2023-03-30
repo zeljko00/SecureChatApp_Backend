@@ -83,9 +83,14 @@ export function assignAvatar(user) {
     default:
       avatar = avatar15;
   }
+  const key = new Uint8Array(JSON.parse(user.key));
+  // console.log(user);
+  // console.log(user.key);
+  // console.log("Repaired array: ");
+  // console.log(key);
   return {
-    user,
+    user: user.username,
     avatar,
-    messages: [],
+    key,
   };
 }

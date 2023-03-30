@@ -12,8 +12,7 @@ import {
   readURL,
   decodeMsg,
 } from "../../services/message.service";
-import { encode } from "../../services/steg.service/encode";
-import { decode } from "../../services/steg.service/decode";
+import { decrypt } from "../../services/crypto.service";
 import Snackbar from "@mui/material/Snackbar";
 import MuiAlert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
@@ -108,7 +107,6 @@ export const ChatPage = () => {
   }));
 
   const reconnect = () => {
-    // console.log("reconnecting");
     const socket = new SocketJS(BASE_URL + "ws");
     stompClient = over(socket);
     stompClient.connect(
@@ -124,10 +122,13 @@ export const ChatPage = () => {
     setMessage(event.target.value);
   };
   const invalidImage = () => {
-    setSnackbarMessage("Max image width/height = 2060px");
+    setSnackbarMessage("Max image width/height = 2060px!");
     setOpenSnackbar(true);
   };
   const sendMessage = (message) => {
+    // console.log("Recepient pk: " + users.get(selectedUser).key);
+    console.log(user);
+    console.log(users.get(selectedUser));
     if (imageAvailable()) {
       if (
         message &&
@@ -135,20 +136,19 @@ export const ChatPage = () => {
         message.replace(/(?:\r\n|\r|\n)/g, "") !== "" &&
         message.replace(/\s/g, "") !== ""
       ) {
-        // console.log("SENDING: " + message + " !!!!!!!!!!!!!!!!!!!!!!!");
         const tokens = tokenize(
           message,
           user.username,
           selectedUser ? selectedUser : "unknown",
-          user.token
+          user.token,
+          users.get(selectedUser).key,
+          user.keys.secretKey
         );
         console.log(tokens);
         tokens.forEach((t) => {
           try {
             stompClient.send("/app/chatroom", {}, JSON.stringify(t));
-          } catch (e) {
-            // console.log(e);
-          }
+          } catch (e) {}
         });
         flushSync(() => {
           if (!chats.has(selectedUser)) chats.set(selectedUser, []);
@@ -209,65 +209,65 @@ export const ChatPage = () => {
       stompClient.subscribe("/chatroom/users/left", (payload) =>
         userLeftNotify(payload, usersMap)
       ); // subscribing user to topic that stores active users' usernames
-      stompClient.send("/app/chatroom/join", {}, userObj.token);
+      const chatRequest = {
+        token: userObj.token,
+        key: JSON.stringify(Object.values(userObj.keys.publicKey)),
+      };
+      // console.log(userObj.keys.publicKey);
+      // console.log(Object.values(userObj.keys.publicKey));
+      // console.log(chatRequest);
+      stompClient.send("/app/chatroom/join", {}, JSON.stringify(chatRequest));
       stompClient.subscribe("/user/" + userObj.username + "/inbox", (payload) =>
-        messageReceived(payload, usersMap)
+        messageReceived(payload, usersMap, userObj)
       ); // subscribing user to topic that represents his chat inbox
       setJoined(true);
     }, 100);
   };
   const onError = () => {};
   const userLeftNotify = (payload, usersMap) => {
-    // console.log("LEFT LEFT LEFT LEFT USER!!!!!   " + payload.body);
-
     if (payload.body !== JSON.parse(state).user.username) {
-      // while (blocked) console.log("waiting");
-      // blocked = true;
-      // console.log(Array.from(usersMap.values()));
       usersMap.delete(payload.body);
-      // console.log(Array.from(usersMap.values()));
       setUsers(new Map(usersMap));
-      blocked = false;
       if (payload.body === selectedUser) setSelectedUser(null);
-    } else console.log("SAME");
+    }
   };
   const newActiveUserNotify = (payload, usersMap) => {
-    if (payload.body !== JSON.parse(state).user.username) {
-      // console.log(Array.from(usersMap.values()));
-      usersMap.set(payload.body, assignAvatar(payload.body));
-      // console.log(Array.from(usersMap.values()));
+    const newUser = JSON.parse(payload.body);
+    if (newUser.username !== JSON.parse(state).user.username) {
+      usersMap.set(newUser.username, assignAvatar(newUser));
+      // console.log(usersMap);
       setUsers(new Map(usersMap));
     }
   };
-  const assembleMsg = (msg) => {
+  const assembleMsg = (sender, msg) => {
     try {
-      const tokens = msg.split("#");
-      const len = Number.parseInt(tokens[2].split("/")[1]);
+      const tokens = msg.split("###");
+      const len = Number.parseInt(tokens[1].split("/")[1]);
       flushSync(() => {
-        if (!msgs.has(tokens[0])) {
+        if (!msgs.has(sender)) {
           // console.log("msg from new user");
-          msgs.set(tokens[0], new Map());
+          msgs.set(sender, new Map());
         }
-        if (!receivedMsgs.includes(tokens[1])) {
-          if (!msgs.get(tokens[0]).has(tokens[1]))
-            msgs.get(tokens[0]).set(tokens[1], new Map());
-          if (!msgs.get(tokens[0]).get(tokens[1]).has(tokens[2])) {
-            msgs.get(tokens[0]).get(tokens[1]).set(tokens[2], tokens[3]);
+        if (!receivedMsgs.includes(tokens[0])) {
+          if (!msgs.get(sender).has(tokens[0]))
+            msgs.get(sender).set(tokens[0], new Map());
+          if (!msgs.get(sender).get(tokens[0]).has(tokens[1])) {
+            msgs.get(sender).get(tokens[0]).set(tokens[1], tokens[2]);
           }
-          if (msgs.get(tokens[0]).get(tokens[1]).size === len) {
-            console.log(msgs.get(tokens[0]).get(tokens[1]));
+          if (msgs.get(sender).get(tokens[0]).size === len) {
+            console.log(msgs.get(sender).get(tokens[0]));
             // console.log("fragments collected");
-            receivedMsgs.push(tokens[1]);
+            receivedMsgs.push(tokens[0]);
             // console.log(receivedMsgs);
-            const msgTokens = msgs.get(tokens[0]).get(tokens[1]);
+            const msgTokens = msgs.get(sender).get(tokens[0]);
             let msg = "";
             for (let i = 1; i <= msgTokens.size; i++) {
               const key = i + "/" + len;
               msg += msgTokens.get(key);
             }
-            msgs.get(tokens[0]).delete(tokens[1]);
-            if (!chats.has(tokens[0])) chats.set(tokens[0], []);
-            chats.get(tokens[0]).push({
+            msgs.get(sender).delete(tokens[1]);
+            if (!chats.has(sender)) chats.set(sender, []);
+            chats.get(sender).push({
               received: true,
               content: msg.replace(/%%%/gm, "\n"),
             });
@@ -276,17 +276,17 @@ export const ChatPage = () => {
             console.log(notifies.current);
             console.log(currentChat.current);
             if (
-              currentChat.current !== tokens[0] &&
-              !notifies.current.includes(tokens[0])
+              currentChat.current !== sender &&
+              !notifies.current.includes(sender)
             ) {
               const temp = notifies.current;
-              temp.push(tokens[0]);
+              temp.push(sender);
               notifies.current = temp;
               console.log("playing");
 
               setArrivedMsgs(temp.length);
             }
-            if (currentChat.current !== tokens[0]) new Audio(ring).play();
+            if (currentChat.current !== sender) new Audio(ring).play();
           }
           setMsgs(new Map(msgs));
         }
@@ -294,19 +294,46 @@ export const ChatPage = () => {
     } catch (e) {}
     if (lastMsg && lastMsg.current) lastMsg.current.scrollIntoView(false);
   };
-  const messageReceived = (payload) => {
-    let msg = payload.body;
-    if (msg.startsWith("data:image")) {
+  const messageReceived = (payload, users, user) => {
+    let msg = JSON.parse(payload.body);
+    // console.log(msg);
+    const sender = msg.sender;
+    console.log(users);
+    console.log(sender);
+    const nonce = new Uint8Array(JSON.parse(msg.nonce));
+    console.log(nonce);
+    console.log(users.get(sender).key);
+    console.log(user.keys.secretKey);
+    if (msg.content.startsWith("data:image")) {
       console.log("Fragment to decode:");
-      console.log(msg);
+      console.log(msg.content);
       const temp = new Image();
-      temp.src = msg;
+      temp.src = msg.content;
       temp.onload = () => {
-        console.log("loaded");
-        msg = decodeMsg(temp);
-        assembleMsg(msg.replace("엛", ""));
+        console.log("loaded image to decode");
+        const content = new Uint8Array(JSON.parse(decodeMsg(temp)));
+        console.log(content);
+        const decrypted_content = decrypt(
+          content,
+          nonce,
+          users.get(sender).key,
+          user.keys.secretKey
+        );
+        console.log("decrypted: " + decrypted_content);
+        assembleMsg(sender, decrypted_content.replace("엛", ""));
       };
-    } else assembleMsg(msg);
+    } else {
+      const content = new Uint8Array(JSON.parse(msg.content));
+      console.log(content);
+      const decrypted_content = decrypt(
+        content,
+        nonce,
+        users.get(sender).key,
+        user.keys.secretKey
+      );
+      console.log("decrypted: " + decrypted_content);
+      assembleMsg(sender, decrypted_content);
+    }
   };
 
   useEffect(() => {
@@ -316,15 +343,25 @@ export const ChatPage = () => {
     } else {
       let array = [];
       const tempUser = JSON.parse(state).user;
+      console.log(tempUser);
+      tempUser.keys.publicKey = new Uint8Array(
+        Object.values(tempUser.keys.publicKey)
+      );
+      tempUser.keys.secretKey = new Uint8Array(
+        Object.values(tempUser.keys.secretKey)
+      );
       setUser(tempUser);
       onlineUsers()
         .catch(() => {})
         .then((response) => {
           if (response !== undefined) {
-            const temp = response.data.filter((u) => u !== tempUser.username);
+            const temp = response.data.filter(
+              (u) => u.username !== tempUser.username
+            );
             array = temp.map((u) => assignAvatar(u));
             const map = new Map();
             array.forEach((u) => map.set(u.user, u));
+            console.log(map);
             setUsers(map);
             if (!joined) {
               // console.log("Joining!");
@@ -426,12 +463,6 @@ export const ChatPage = () => {
             {snackbarMessage}
           </MuiAlert>
         </Snackbar>
-
-        {/* {image && <img src={image} alt="source"></img>}
-      <button onClick={hideMsg}>Hide</button>
-      {hiddenMsg && <img src={hiddenMsg} alt="hidden"></img>}
-      <button onClick={revealMsg}>Reveal</button>
-      <p>{msg}</p> */}
         {!open && (
           <Fab
             aria-label="add"

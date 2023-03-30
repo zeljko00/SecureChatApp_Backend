@@ -9,6 +9,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import KeyIcon from "@mui/icons-material/Key";
 import { login } from "../../services/user.service";
+import { generate_keys } from "../../services/crypto.service";
 export const LoginPage = () => {
   const [username, setUsername] = useState("user");
   const [password, setPassword] = useState("password");
@@ -38,7 +39,13 @@ export const LoginPage = () => {
       })
       .then((response) => {
         if (response !== undefined) {
-          const userObj = { username, token: response.data };
+          const keys = generate_keys();
+          console.log(keys);
+          // keys.publicKey = new Uint8Array(Object.values(keys.publicKey));
+          // keys.secretKey = new Uint8Array(Object.values(keys.secretKey));
+          // console.log(keys);
+          const userObj = { username, token: response.data, keys };
+          console.log(userObj);
           sessionStorage.setItem("token", response.data);
           document.getElementById("inpLock").checked = false;
           window.setTimeout(

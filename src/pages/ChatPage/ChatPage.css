@@ -48,6 +48,7 @@ button{padding: 0}
     overflow: auto;
     z-index: 1000;
     margin-bottom: 85px;
+    margin-top: 5px;
 }
 .new-message{
     padding: 5px;
