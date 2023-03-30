@@ -13,6 +13,7 @@ function getToken() {
     return "NO_TOKEN";
   }
 }
+// sets headers and baseURL for each ajax request
 export const client = createAxiosClient({
   options: {
     baseURL: BASE_URL,

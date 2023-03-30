@@ -39,11 +39,14 @@ export const LoginPage = () => {
       })
       .then((response) => {
         if (response !== undefined) {
+          //generating pair of keys
           const keys = generate_keys();
-          console.log(keys);
+          // console.log(keys);
           // keys.publicKey = new Uint8Array(Object.values(keys.publicKey));
           // keys.secretKey = new Uint8Array(Object.values(keys.secretKey));
           // console.log(keys);
+
+          // if login is successful, data about user (username, JWT, keys) is forwarded to ChatPage
           const userObj = { username, token: response.data, keys };
           console.log(userObj);
           sessionStorage.setItem("token", response.data);

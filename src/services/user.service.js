@@ -37,6 +37,7 @@ export function onlineUsers() {
 export function assignAvatar(user) {
   const random = Math.floor(Math.random() * 15) + 1;
   let avatar;
+  // assigns random avatar
   switch (random) {
     case 1:
       avatar = avatar1;
@@ -83,6 +84,7 @@ export function assignAvatar(user) {
     default:
       avatar = avatar15;
   }
+  // creating key in Uint8Array form from raw array
   const key = new Uint8Array(JSON.parse(user.key));
   // console.log(user);
   // console.log(user.key);

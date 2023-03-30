@@ -4,7 +4,10 @@ export const generate_keys = () => {
   return nacl.box.keyPair();
 };
 export const encrypt = (message, senderSK, recepientPK) => {
+  // nonce used in encryption process
   const one_time_code = nacl.randomBytes(24);
+
+  // generating session key (elliptic curve Diffie Helman)
   const shared_key = nacl.box.before(recepientPK, senderSK);
 
   const cipher_text = nacl.box.after(
@@ -12,6 +15,7 @@ export const encrypt = (message, senderSK, recepientPK) => {
     one_time_code,
     shared_key
   );
+  // result consist of 2 Uint8Arrays (encrypted text and nonce)
   const result = {
     cipher_text,
     one_time_code,

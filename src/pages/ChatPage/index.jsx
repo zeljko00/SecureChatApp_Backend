@@ -106,6 +106,7 @@ export const ChatPage = () => {
     left: "calc(50% - 15px)",
   }));
 
+  // sometimes WebSockets connection breaks -> this reconnects user and server
   const reconnect = () => {
     const socket = new SocketJS(BASE_URL + "ws");
     stompClient = over(socket);
@@ -115,12 +116,14 @@ export const ChatPage = () => {
       onError
     );
   };
+  // saving message changes
   const handleMessageChange = (event) => {
     if (event.target.value === "" || event.target.value === "Message")
       setShowSend(false);
     else setShowSend(true);
     setMessage(event.target.value);
   };
+  // image size is limited
   const invalidImage = () => {
     setSnackbarMessage("Max image width/height = 2060px!");
     setOpenSnackbar(true);
@@ -150,15 +153,20 @@ export const ChatPage = () => {
             stompClient.send("/app/chatroom", {}, JSON.stringify(t));
           } catch (e) {}
         });
+        // this enables scroolIntoView to work properly
         flushSync(() => {
+          // add new message to chat -> causes new render because of ***
           if (!chats.has(selectedUser)) chats.set(selectedUser, []);
           chats.get(selectedUser).push({
             received: false,
             content: message,
           });
+          // resets message
           setMessage("");
+          //***
           setChats(new Map(chats));
         });
+        // scrolling to last element
         if (lastMsg && lastMsg.current) lastMsg.current.scrollIntoView(false);
       }
     } else {
@@ -167,6 +175,7 @@ export const ChatPage = () => {
     }
   };
   const handleSendMessage = (message) => {
+    // reconnects if connection is broken
     if (stompClient === null) {
       reconnect();
       setTimeout(() => sendMessage(message), 400);
@@ -183,6 +192,7 @@ export const ChatPage = () => {
   };
   const handleSelectUser = (user) => {
     setOpen(false);
+    // if there are new arrived messages from seleceted user...
     decreaseArrivedMsgs(user);
     currentChat.current = user;
     setSelectedUser(user);
@@ -203,12 +213,14 @@ export const ChatPage = () => {
   const onConnectionEstablished = (userObj, usersMap) => {
     //timeout after establishing connection required from unknown reasons
     setTimeout(() => {
+      // subscribing user to topic that stores active users
       stompClient.subscribe("/chatroom/users/active", (payload) =>
         newActiveUserNotify(payload, usersMap)
-      ); // subscribing user to topic that stores active users' usernames
+      );
+      // subscribing user to topic that stores data about users that left chat
       stompClient.subscribe("/chatroom/users/left", (payload) =>
         userLeftNotify(payload, usersMap)
-      ); // subscribing user to topic that stores active users' usernames
+      );
       const chatRequest = {
         token: userObj.token,
         key: JSON.stringify(Object.values(userObj.keys.publicKey)),
@@ -216,14 +228,18 @@ export const ChatPage = () => {
       // console.log(userObj.keys.publicKey);
       // console.log(Object.values(userObj.keys.publicKey));
       // console.log(chatRequest);
+
+      // joining chat
       stompClient.send("/app/chatroom/join", {}, JSON.stringify(chatRequest));
+      // joining to user-specific topic (inbox)
       stompClient.subscribe("/user/" + userObj.username + "/inbox", (payload) =>
         messageReceived(payload, usersMap, userObj)
-      ); // subscribing user to topic that represents his chat inbox
+      );
       setJoined(true);
     }, 100);
   };
   const onError = () => {};
+  // action performed after one of the active users leave chat
   const userLeftNotify = (payload, usersMap) => {
     if (payload.body !== JSON.parse(state).user.username) {
       usersMap.delete(payload.body);
@@ -231,6 +247,7 @@ export const ChatPage = () => {
       if (payload.body === selectedUser) setSelectedUser(null);
     }
   };
+  // action performed after new users joined chat
   const newActiveUserNotify = (payload, usersMap) => {
     const newUser = JSON.parse(payload.body);
     if (newUser.username !== JSON.parse(state).user.username) {
@@ -239,6 +256,7 @@ export const ChatPage = () => {
       setUsers(new Map(usersMap));
     }
   };
+  // handles mesage fragment -> puts it in collection with other fragments from same message
   const assembleMsg = (sender, msg) => {
     try {
       const tokens = msg.split("###");
@@ -254,6 +272,7 @@ export const ChatPage = () => {
           if (!msgs.get(sender).get(tokens[0]).has(tokens[1])) {
             msgs.get(sender).get(tokens[0]).set(tokens[1], tokens[2]);
           }
+          // all fragments collected - new message is added to chat
           if (msgs.get(sender).get(tokens[0]).size === len) {
             console.log(msgs.get(sender).get(tokens[0]));
             // console.log("fragments collected");
@@ -275,6 +294,7 @@ export const ChatPage = () => {
             setChats(new Map(chats));
             console.log(notifies.current);
             console.log(currentChat.current);
+            // creating notify about new arrived message
             if (
               currentChat.current !== sender &&
               !notifies.current.includes(sender)
@@ -294,9 +314,12 @@ export const ChatPage = () => {
     } catch (e) {}
     if (lastMsg && lastMsg.current) lastMsg.current.scrollIntoView(false);
   };
+  // action performed after receivein new fragment
   const messageReceived = (payload, users, user) => {
     let msg = JSON.parse(payload.body);
     // console.log(msg);
+
+    // exctracting sender, sender public key, nonce and content from fragment
     const sender = msg.sender;
     console.log(users);
     console.log(sender);
@@ -304,6 +327,7 @@ export const ChatPage = () => {
     console.log(nonce);
     console.log(users.get(sender).key);
     console.log(user.keys.secretKey);
+    // if cotnent starts with data:image -> encrypted message is hidden inside of image
     if (msg.content.startsWith("data:image")) {
       console.log("Fragment to decode:");
       console.log(msg.content);
@@ -325,6 +349,7 @@ export const ChatPage = () => {
     } else {
       const content = new Uint8Array(JSON.parse(msg.content));
       console.log(content);
+      // decrypting
       const decrypted_content = decrypt(
         content,
         nonce,
@@ -351,6 +376,7 @@ export const ChatPage = () => {
         Object.values(tempUser.keys.secretKey)
       );
       setUser(tempUser);
+      // fetching info about users that alredy joined chat
       onlineUsers()
         .catch(() => {})
         .then((response) => {
@@ -365,6 +391,8 @@ export const ChatPage = () => {
             setUsers(map);
             if (!joined) {
               // console.log("Joining!");
+
+              // establising WebSocket connection with server
               const socket = new SocketJS(BASE_URL + "ws");
               stompClient = over(socket);
               stompClient.connect(
@@ -377,6 +405,7 @@ export const ChatPage = () => {
         });
     }
   }, []);
+  // handles notifies
   const decreaseArrivedMsgs = (user) => {
     const index = notifies.current.indexOf(user);
     if (index > -1) {
