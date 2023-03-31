@@ -1,7 +1,11 @@
 import { createAxiosClient } from "./request.interceptor";
 
 const host = "192.168.100.8";
-export const BASE_URL = "http://" + host + ":8080/SecureChat/";
+// const host = "localhost";
+const protocol = "https";
+const port = "";
+// export const BASE_URL = protocol + "://" + host + ":443/SecureChat/";
+export const BASE_URL = protocol + "://" + host + ":8443/SecureChat/";
 
 function getToken() {
   try {
