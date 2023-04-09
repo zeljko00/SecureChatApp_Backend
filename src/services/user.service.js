@@ -1,6 +1,6 @@
 import axios from "axios";
 import { client } from "./axios.service";
-import { BASE_URL } from "./axios.service";
+import { MAIN_SERVER } from "./axios.service";
 import avatar1 from "../assets/images/avatar1.png";
 import avatar2 from "../assets/images/avatar2.png";
 import avatar3 from "../assets/images/avatar3.png";
@@ -18,7 +18,7 @@ import avatar14 from "../assets/images/avatar14.png";
 import avatar15 from "../assets/images/avatar15.png";
 export function login(username, password) {
   const credentials = btoa(username + ":" + password);
-  return axios.get(BASE_URL + "users/login", {
+  return axios.get(MAIN_SERVER + "users/login", {
     headers: {
       "Content-Type": "application/json",
       Authorization: "Basic " + credentials,
@@ -26,13 +26,13 @@ export function login(username, password) {
   });
 }
 export function register(username, password) {
-  return client.post(BASE_URL + "users/signup", {
+  return client.post(MAIN_SERVER + "users/signup", {
     username: username,
     password: password,
   });
 }
 export function onlineUsers() {
-  return client.get(BASE_URL + "users");
+  return client.get(MAIN_SERVER + "users");
 }
 export function assignAvatar(user) {
   const random = Math.floor(Math.random() * 15) + 1;

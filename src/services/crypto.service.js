@@ -24,8 +24,10 @@ export const encrypt = (message, senderSK, recepientPK) => {
 };
 
 export const decrypt = (message, one_time_code, senderPK, recepientSK) => {
-  const shared_key = nacl.box.before(senderPK, recepientSK);
+  try {
+    const shared_key = nacl.box.before(senderPK, recepientSK);
 
-  const plain_text = nacl.box.open.after(message, one_time_code, shared_key);
-  return naclUtil.encodeUTF8(plain_text);
+    const plain_text = nacl.box.open.after(message, one_time_code, shared_key);
+    return naclUtil.encodeUTF8(plain_text);
+  } catch (e) {}
 };

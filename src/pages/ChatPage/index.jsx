@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { over } from "stompjs";
 import SocketJS from "sockjs-client";
 import { onlineUsers, assignAvatar } from "../../services/user.service";
-import { BASE_URL } from "../../services/axios.service";
+import { SERVERS } from "../../services/axios.service";
 import {
   tokenize,
   imageAvailable,
@@ -39,7 +39,7 @@ import SendIcon from "@mui/icons-material/Send";
 import Fab from "@mui/material/Fab";
 import PeopleIcon from "@mui/icons-material/People";
 import ring from "../../assets/audio/bell.wav";
-let stompClient = null;
+let stompClients = [];
 export const ChatPage = () => {
   const navigate = useNavigate();
   const state = useLocation().state;
@@ -49,6 +49,7 @@ export const ChatPage = () => {
   const lastMsg = useRef(null);
   const [users, setUsers] = useState(new Map());
   const [chats, setChats] = useState(new Map());
+  const chatsData = useRef(new Map());
   const notifies = useRef([]);
   const currentChat = useRef(null);
   const [msgs, setMsgs] = useState(new Map());
@@ -106,11 +107,24 @@ export const ChatPage = () => {
     left: "calc(50% - 15px)",
   }));
 
+  const connect = (user, users) => {
+    SERVERS.forEach((url) => {
+      const socket = new SocketJS(url + "ws");
+      console.log("connecting to " + url);
+      const stompClient = over(socket);
+      stompClient.connect(
+        {},
+        () => onConnectionEstablished(user, users, stompClient),
+        onError
+      );
+      stompClients.push(stompClient);
+    });
+  };
   // sometimes WebSockets connection breaks -> this reconnects user and server
-  const reconnect = () => {
-    const socket = new SocketJS(BASE_URL + "ws");
-    stompClient = over(socket);
-    stompClient.connect(
+  const reconnect = (id) => {
+    const socket = new SocketJS(SERVERS[id] + "ws");
+    stompClients[id] = over(socket);
+    stompClients[id].connect(
       {},
       () => onConnectionEstablished(user, users),
       onError
@@ -148,23 +162,39 @@ export const ChatPage = () => {
           user.keys.secretKey
         );
         console.log(tokens);
+        const servers_num = SERVERS.length;
+        let counter = Math.floor(Math.random() * SERVERS.length);
         tokens.forEach((t) => {
           try {
-            stompClient.send("/app/chatroom", {}, JSON.stringify(t));
+            if (stompClients[counter] === null) {
+              reconnect(SERVERS[counter]);
+              setTimeout(
+                () =>
+                  stompClients[counter].send(
+                    "/app/chatroom",
+                    {},
+                    JSON.stringify(t)
+                  ),
+                400
+              );
+            }
+            stompClients[counter].send("/app/chatroom", {}, JSON.stringify(t));
+            counter = (counter + 1) % servers_num;
           } catch (e) {}
         });
         // this enables scroolIntoView to work properly
         flushSync(() => {
           // add new message to chat -> causes new render because of ***
-          if (!chats.has(selectedUser)) chats.set(selectedUser, []);
-          chats.get(selectedUser).push({
+          if (!chatsData.current.has(selectedUser))
+            chatsData.current.set(selectedUser, []);
+          chatsData.current.get(selectedUser).push({
             received: false,
             content: message,
           });
           // resets message
           setMessage("");
           //***
-          setChats(new Map(chats));
+          setChats(new Map(chatsData.current));
         });
         // scrolling to last element
         if (lastMsg && lastMsg.current) lastMsg.current.scrollIntoView(false);
@@ -175,11 +205,7 @@ export const ChatPage = () => {
     }
   };
   const handleSendMessage = (message) => {
-    // reconnects if connection is broken
-    if (stompClient === null) {
-      reconnect();
-      setTimeout(() => sendMessage(message), 400);
-    } else sendMessage(message);
+    sendMessage(message);
   };
   const handleOpenSnackbar = () => {
     setOpenSnackbar(true);
@@ -198,19 +224,23 @@ export const ChatPage = () => {
     setSelectedUser(user);
   };
   const logoutUser = () => {
-    if (stompClient === null) {
-      reconnect();
-      setTimeout(() => logout(), 800);
-    } else logout();
-  };
-  const logout = () => {
-    stompClient.send("/app/chatroom/leave", {}, user.token);
-    navigate("/SecureChat");
+    let i = 0;
+    let n = SERVERS.length;
+    for (i; i < n; i++) {
+      if (stompClients[i] === null) {
+        reconnect(SERVERS[i]);
+        setTimeout(
+          () => stompClients[i].send("/app/chatroom/leave", {}, user.token),
+          800
+        );
+      } else stompClients[i].send("/app/chatroom/leave", {}, user.token);
+      navigate("/SecureChat");
+    }
   };
   const toggleDrawer = (newOpen) => () => {
     setOpen(newOpen);
   };
-  const onConnectionEstablished = (userObj, usersMap) => {
+  const onConnectionEstablished = (userObj, usersMap, stompClient) => {
     //timeout after establishing connection required from unknown reasons
     setTimeout(() => {
       // subscribing user to topic that stores active users
@@ -250,9 +280,11 @@ export const ChatPage = () => {
   // action performed after new users joined chat
   const newActiveUserNotify = (payload, usersMap) => {
     const newUser = JSON.parse(payload.body);
-    if (newUser.username !== JSON.parse(state).user.username) {
+    if (
+      newUser.username !== JSON.parse(state).user.username &&
+      chatsData.current.has(newUser.username) === false
+    ) {
       usersMap.set(newUser.username, assignAvatar(newUser));
-      // console.log(usersMap);
       setUsers(new Map(usersMap));
     }
   };
@@ -285,13 +317,14 @@ export const ChatPage = () => {
               msg += msgTokens.get(key);
             }
             msgs.get(sender).delete(tokens[1]);
-            if (!chats.has(sender)) chats.set(sender, []);
-            chats.get(sender).push({
+            if (!chatsData.current.has(sender))
+              chatsData.current.set(sender, []);
+            chatsData.current.get(sender).push({
               received: true,
               content: msg.replace(/%%%/gm, "\n"),
             });
 
-            setChats(new Map(chats));
+            setChats(new Map(chatsData.current));
             console.log(notifies.current);
             console.log(currentChat.current);
             // creating notify about new arrived message
@@ -390,16 +423,8 @@ export const ChatPage = () => {
             console.log(map);
             setUsers(map);
             if (!joined) {
-              // console.log("Joining!");
-
-              // establising WebSocket connection with server
-              const socket = new SocketJS(BASE_URL + "ws");
-              stompClient = over(socket);
-              stompClient.connect(
-                {},
-                () => onConnectionEstablished(tempUser, map),
-                onError
-              );
+              // establising WebSocket connection with servers
+              connect(tempUser, map);
             }
           }
         });
