@@ -10,6 +10,7 @@ import AccountCircle from "@mui/icons-material/AccountCircle";
 import KeyIcon from "@mui/icons-material/Key";
 import profileIcon from "../../assets/images/profile.png";
 import { register } from "../../services/user.service";
+import { generate_keys } from "../../services/crypto.service";
 export const RegisterPage = () => {
   const [username, setUsername] = useState("user");
   const [usernameError, setUsernameError] = useState("");
@@ -54,7 +55,8 @@ export const RegisterPage = () => {
         })
         .then((response) => {
           if (response !== undefined) {
-            const userObj = { username, token: response.data };
+            const keys = generate_keys();
+            const userObj = { username, token: response.data, keys };
             sessionStorage.setItem(token, response.data);
             navigate("/SecureChat/chatroom", {
               state: JSON.stringify({

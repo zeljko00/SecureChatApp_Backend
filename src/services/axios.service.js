@@ -1,9 +1,11 @@
 import { createAxiosClient } from "./request.interceptor";
 
 const host = "192.168.100.8";
+// const host = "192.168.43.63";
 // const host = "localhost";
 const protocol = "https";
 const ports = [8443, 8442, 8441];
+// const ports = [8443];
 export const SERVERS = ports.map((port) => {
   return protocol + "://" + host + ":" + port + "/SecureChat/";
 });

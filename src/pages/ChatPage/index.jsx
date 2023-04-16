@@ -377,7 +377,9 @@ export const ChatPage = () => {
           user.keys.secretKey
         );
         console.log("decrypted: " + decrypted_content);
-        assembleMsg(sender, decrypted_content.replace("엛", ""));
+        try {
+          assembleMsg(sender, decrypted_content.replace("엛", ""));
+        } catch (e) {}
       };
     } else {
       const content = new Uint8Array(JSON.parse(msg.content));
